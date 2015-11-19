@@ -2,7 +2,8 @@
 #include <AltSoftSerial.h>
 AltSoftSerial altSerial;
 #include "Adafruit_TCS34725.h"
-#include <SparkFun_APDS9960.h>
+//#include <SparkFun_APDS9960.h>
+#include "SparkFun_APDS9960.h"
 /* Example code for the Adafruit TCS34725 breakout library */
 
 /* Connect SCL    to analog 5
@@ -35,7 +36,7 @@ const int  buttonPin_green_usb = 6;    // the pin that the pushbutton is attache
 const int  buttonPin_yellow = 8;    // the pin that the pushbutton is attached to
 int buttonPushCounter = 0;   // counter for the number of button presses
 
-int gesture();
+void gesture();
 
 void setup(void) 
 
@@ -43,13 +44,7 @@ void setup(void)
   Serial.begin(38400);
   //altSerial.begin(38400);  
   //altSerial.begin(57600);
-  //altSerial.begin(57600);
-  if (tcs.begin()) {
-    altSerial.println("Found sensor");
-  } else {
-    altSerial.println("No TCS34725 found ... check your connections");
-    while (1);
-  } 
+  //altSerial.begin(57600);  
   pinMode(12, INPUT_PULLUP);
   pinMode(11, INPUT_PULLUP);
   pinMode(8, INPUT_PULLUP);
@@ -64,49 +59,45 @@ void setup(void)
   altSerial.println(F("SparkFun APDS-9960 - GestureTest"));
   altSerial.println(F("--------------------------------"));
   // Initialize interrupt service routine
-  //attachInterrupt(1, interruptRoutine, FALLING);
+  attachInterrupt(1, interruptRoutine, FALLING);
    // Initialize APDS-9960 (configure I2C and initial values)
   if ( apds.init() ) {
     altSerial.println(F("APDS-9960 initialization complete"));
   } else {
     altSerial.println(F("Something went wrong during APDS-9960 init!"));
   }
-   
-  // Start running the APDS-9960 gesture sensor engine
-  if ( apds.enableGestureSensor(true) ) {
-    altSerial.println(F("Gesture sensor is now running"));
-  } else {
-    altSerial.println(F("Something went wrong during gesture sensor init!"));
-  }
-  
+ if ( apds.enableGestureSensor(true) ) {
+      Serial.println(F("Gesture running"));
+    } else {
+      Serial.println(F("Something went wrong during gesture sensor init!"));
+    }  
+     
   // Now we're ready to get readings!
 }            
 
-//void interruptRoutine() {
-//  isr_flag = 1;
-//}
-
-
-//void gesture()
-//{
-//if( isr_flag == 1 ) {
-//
-//    detachInterrupt(0);
-//    handleGesture();
-//    delay(20);    
-//    isr_flag = 0;
-//    attachInterrupt(0, interruptRoutine, FALLING);    
-//    //delay(20);
-//   }
-// }
-
-int gesture()
-{
-if (APDS9960_INT)
-  {
-    handleGesture();
-  }
+void interruptRoutine() {
+  isr_flag = 1;
 }
+
+
+void gesture()
+{
+if( isr_flag == 1 ) {
+
+    detachInterrupt(0);
+    handleGesture();      
+    isr_flag = 0;
+    attachInterrupt(0, interruptRoutine, FALLING);       
+   }
+ }
+
+//int gesture()
+//{
+//if (APDS9960_INT)
+//  {
+//    handleGesture();
+//  }
+//}
                           
 void loop(void) {  
     
@@ -120,21 +111,29 @@ void loop(void) {
 
     switch (inByte) {
       case 'a':
-        altSerial.begin(38400); /*Gesture Sensor*/
+        // Start running the APDS-9960 gesture sensor engine            
+        altSerial.begin(38400); /*Gesture Sensor*/        
+        delay(10);
         gesture();
-        delay(10);        
-        //Serial.flush ();
         altSerial.flush ();
         break;
       case 'b':
         altSerial.begin(38400); /*Push Buttons*/
+        apds.disableGestureSensor();        
         buttons();
         delay(30);
         //Serial.flush ();
         altSerial.flush ();
         break;
-      case 'c':
+      case 'c':        
+        if (tcs.begin()) {
+           Serial.println("Found sensor");
+          } else {
+            Serial.println("No TCS34725 found ... check your connections");
+            while (1);
+          } 
         altSerial.begin(38400); /*Color Sensor*/
+        apds.disableGestureSensor();        
         sensor_data();
         delay(50);
         //Serial.flush ();
@@ -142,13 +141,15 @@ void loop(void) {
         break;
       case 'd':        
         altSerial.begin(38400);
-        altSerial.println("------- MENU -------");
-        altSerial.println("I am responding to you for 'e' ");        
+        apds.disableGestureSensor();        
+        altSerial.println("------- DEBUG -------");
+        altSerial.println("I am responding to you for 'd'");        
         altSerial.println("--------------------");
         altSerial.flush ();
         break;     
       default:
-        // turn all the LEDs off:
+        // turn all the LEDs off:        
+        apds.disableGestureSensor();
         decision(); /*To stop the transmit*/        
         break; 
     }    
@@ -161,10 +162,10 @@ void sensor_data()
       uint16_t clear, red, green, blue;
       
       //handleGesture(); 
-      tcs.setInterrupt(false);      // turn on LED
+      //tcs.setInterrupt(false);      // turn on LED
       //delay(60);  // takes 50ms to read 
       tcs.getRawData(&red, &green, &blue, &clear);
-      tcs.setInterrupt(true);  // turn off LED
+      //tcs.setInterrupt(true);  // turn off LED
   // Figure out some basic hex code for visualization
   uint32_t sum = clear;
   float r, g, b; 
@@ -327,19 +328,19 @@ void handleGesture() {
         altSerial.println("UP");
         break;
       case DIR_DOWN:
-        altSerial.println("DOWN");
+        altSerial.println("DN");
         break;
       case DIR_LEFT:
-        altSerial.println("LEFT");
+        altSerial.println("LT");
         break;
       case DIR_RIGHT:
-        altSerial.println("RIGHT");
+        altSerial.println("RT");
         break;
       case DIR_NEAR:
-        altSerial.println("NEAR");
+        altSerial.println("NR");
         break;
       case DIR_FAR:
-        altSerial.println("FAR");
+        altSerial.println("FR");
         break;
       default:
         altSerial.println("NONE");
